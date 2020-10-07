@@ -541,19 +541,10 @@ DEFINE_INT_HANDLER (time_update){
 	}
 
 	if(animating){
-		if(animation_y == animation_end_y){
-			animating = 0;
-			place_piece(&global_board, animation_col, current_turn);
-			current_turn = !current_turn;
-			stop_engine = 0;
-			update_scr = 1;
-			if(get_player(current_turn) == COMPUTER){
-				computer_timer = global_game_settings.computer_wait*20;
-			}
-		} else if(animation_y + 6 > animation_end_y){
+		if(animation_y != animation_end_y && animation_y + 6 > animation_end_y){
 			animation_y = animation_end_y;
 			update_scr = 1;
-		} else {
+		} else if(animation_y < animation_end_y){
 			animation_y += 6;
 			update_scr = 1;
 		}
@@ -857,6 +848,16 @@ void _main(){
 			stop_engine = 0;
 			computer_timer = global_game_settings.computer_wait*20;
 			SetIntVec(AUTO_INT_5, time_update);
+		}
+		if(animating && animation_y == animation_end_y){
+			animating = 0;
+			place_piece(&global_board, animation_col, current_turn);
+			current_turn = !current_turn;
+			stop_engine = 0;
+			update_scr = 1;
+			if(get_player(current_turn) == COMPUTER){
+				computer_timer = global_game_settings.computer_wait*20;
+			}
 		}
 		win_color = get_win(&global_board);
 		if(win_color != -1){
