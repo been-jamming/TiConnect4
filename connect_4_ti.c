@@ -806,7 +806,7 @@ void _main(){
 	memcpy(GrayGetPlane(DARK_PLANE), dark_buffer, LCD_SIZE);
 
 	while(!success){
-		menu_selection = do_menu("Main Menu", main_menu_items, sizeof(main_menu_items)/sizeof(main_menu_items[0]));
+		menu_selection = do_menu("Ti89 Connect 4", main_menu_items, sizeof(main_menu_items)/sizeof(main_menu_items[0]));
 		if(menu_selection == 0){
 			success = choose_game_settings();
 		} else if(menu_selection == 1){
