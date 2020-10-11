@@ -364,6 +364,7 @@ int negamax(board b, int color, int orig_alpha, int orig_beta, int depth, int *o
 	int move;
 	int alpha;
 	int beta;
+	int is_draw = 1;
 
 	hash_index = get_hash_index(&b);
 	entry = hash_table[hash_index];
@@ -407,6 +408,7 @@ int negamax(board b, int color, int orig_alpha, int orig_beta, int depth, int *o
 			}
 		}
 		if(b.col_heights[move] < 6){
+			is_draw = 0;
 			place_piece(&b, move, color);
 			if(get_win(&b) == color){
 				score = INFINITY;
@@ -457,7 +459,11 @@ int negamax(board b, int color, int orig_alpha, int orig_beta, int depth, int *o
 		hash_table[hash_index] = entry;
 	}
 
-	return best_score;
+	if(is_draw){
+		return 0;
+	} else {
+		return best_score;
+	}
 }
 
 void update_msg(char *message){
