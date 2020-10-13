@@ -39,6 +39,7 @@ volatile int animation_end_y;
 volatile int animation_col;
 volatile int selection_col;
 volatile int computer_col;
+volatile int global_score = 0;
 unsigned int draw_check = 1;
 volatile unsigned char current_turn;
 char message_str[28] = {0};
@@ -479,12 +480,14 @@ void render_screen(){
 	unsigned int i;
 
 	ClearGrayScreen2B(light_buffer, dark_buffer);
-	if(animating && current_turn == WHITE){
-		Sprite16(animation_col*14 + 31, animation_y, 14, white_piece, light_buffer, SPRT_OR);
-		Sprite16(animation_col*14 + 31, animation_y, 14, white_piece, dark_buffer, SPRT_OR);
-	} else if(animating && current_turn == BLACK){
-		Sprite16(animation_col*14 + 31, animation_y, 14, black_piece, light_buffer, SPRT_OR);
-		Sprite16(animation_col*14 + 31, animation_y, 14, black_piece, dark_buffer, SPRT_OR);
+	if(animation_y != animation_end_y){
+		if(animating && current_turn == WHITE){
+			Sprite16(animation_col*14 + 31, animation_y, 14, white_piece, light_buffer, SPRT_OR);
+			Sprite16(animation_col*14 + 31, animation_y, 14, white_piece, dark_buffer, SPRT_OR);
+		} else if(animating && current_turn == BLACK){
+			Sprite16(animation_col*14 + 31, animation_y, 14, black_piece, light_buffer, SPRT_OR);
+			Sprite16(animation_col*14 + 31, animation_y, 14, black_piece, dark_buffer, SPRT_OR);
+		}
 	}
 	render_board(&global_board);
 	draw_selection(selection_col);
@@ -556,9 +559,10 @@ DEFINE_INT_HANDLER (time_update){
 		}
 	} else {
 		if(get_player(current_turn) == COMPUTER){
-			if(computer_timer > 0){
+			if(computer_timer > 0 && global_score != INFINITY && global_score != -INFINITY){
 				computer_timer--;
 			} else {
+				global_score = 0;
 				animating = 1;
 				animation_y = 3;
 				animation_end_y = 16 + 14*(5 - global_board.col_heights[computer_col]);
@@ -584,6 +588,7 @@ int update_computer(){
 		if(stop_engine){
 			return;
 		}
+		global_score = score;
 		pv_length = pv.move_count;
 		if(global_game_settings.show_pv){
 			draw_checkmark_live(computer_col);
@@ -671,7 +676,7 @@ void print_settings_buffer(char str_buffers[6][32], char *menu_entries[6], game_
 int choose_game_settings(){
 	char str_buffers[6][32];
 	char *menu_entries[6];
-	int selection;
+	int selection = 0;
 	char *invalid_message = "Invalid wait time";
 	char *entry;
 	int secs;
@@ -679,15 +684,9 @@ int choose_game_settings(){
 
 	old_settings = global_game_settings;
 
-	global_game_settings.game_board = global_board;
-	global_game_settings.white_player = HUMAN;
-	global_game_settings.black_player = HUMAN;
-	global_game_settings.show_evaluation = 1;
-	global_game_settings.show_pv = 1;
-	global_game_settings.computer_wait = 30;
 	print_settings_buffer(str_buffers, menu_entries, global_game_settings);
 
-	while((selection = do_menu("Game Options", menu_entries, sizeof(menu_entries)/sizeof(menu_entries[0]))) != 5){
+	while((selection = do_menu("Game Options", menu_entries, selection, sizeof(menu_entries)/sizeof(menu_entries[0]))) != 5){
 		if(selection == -1){
 			global_game_settings = old_settings;
 			return 0;
@@ -706,7 +705,7 @@ int choose_game_settings(){
 				secs = atoi(entry);
 				free(entry);
 				if(secs <= 0 || secs >= 1000){
-					do_menu("Error", &invalid_message, 1);
+					do_menu("Error", &invalid_message, 0, 1);
 				} else {
 					global_game_settings.computer_wait = secs;
 				}
@@ -730,19 +729,21 @@ int do_load_board(){
 		free(entry);
 	}
 	if(!entry || !fp){
-		do_menu("Error", &error_message, 1);
+		do_menu("Error", &error_message, 0, 1);
 		return 0;
 	}
 	old_settings = global_game_settings;
 	if(!fread(&global_game_settings, 1, sizeof(game_settings), fp)){
 		fclose(fp);
-		do_menu("Error", &error_message, 1);
+		do_menu("Error", &error_message, 0, 1);
 		return 0;
 	}
 
 	fclose(fp);
 
+	global_score = 0;
 	global_board = global_game_settings.game_board;
+	current_turn = global_game_settings.current_turn;
 	return 1;
 }
 
@@ -752,18 +753,19 @@ void do_save_board(){
 	char *error_message = "Failed to save file";
 
 	global_game_settings.game_board = global_board;
+	global_game_settings.current_turn = current_turn;
 	entry = do_text_entry("Enter file name");
 	if(entry){
 		fp = fopen(entry, "w");
 		free(entry);
 	}
 	if(!entry || !fp){
-		do_menu("Error", &error_message, 1);
+		do_menu("Error", &error_message, 0, 1);
 		return;
 	}
 	if(!fwrite(&global_game_settings, 1, sizeof(game_settings), fp)){
 		fclose(fp);
-		do_menu("Error", &error_message, 1);
+		do_menu("Error", &error_message, 0, 1);
 		return;
 	}
 
@@ -773,7 +775,7 @@ void do_save_board(){
 void _main(){
 	int win_color;
 	int draw = 0;
-	int menu_selection;
+	int menu_selection = 0;
 	unsigned char success = 0;
 	board demo_board;
 	int i;
@@ -802,10 +804,19 @@ void _main(){
 	memcpy(GrayGetPlane(LIGHT_PLANE), light_buffer, LCD_SIZE);
 	memcpy(GrayGetPlane(DARK_PLANE), dark_buffer, LCD_SIZE);
 
+
+	global_game_settings.game_board = global_board;
+	global_game_settings.white_player = HUMAN;
+	global_game_settings.black_player = HUMAN;
+	global_game_settings.show_evaluation = 1;
+	global_game_settings.show_pv = 1;
+	global_game_settings.computer_wait = 30;
+
 	while(!success){
-		menu_selection = do_menu("Ti89 Connect 4", main_menu_items, sizeof(main_menu_items)/sizeof(main_menu_items[0]));
+		menu_selection = do_menu("Ti89 Connect 4", main_menu_items, menu_selection, sizeof(main_menu_items)/sizeof(main_menu_items[0]));
 		if(menu_selection == 0){
 			success = choose_game_settings();
+			current_turn = WHITE;
 		} else if(menu_selection == 1){
 			success = do_load_board();
 		} else if(menu_selection == 2){
@@ -820,7 +831,7 @@ void _main(){
 
 	selection_col = 3;
 	computer_col = 3;
-	current_turn = WHITE;
+	global_score = 0;
 
 	stop_engine = 0;
 	move_made = 0;
@@ -839,7 +850,7 @@ void _main(){
 		}
 		if(enter_menu){
 			SetIntVec(AUTO_INT_5, old_int_5);
-			menu_selection = do_menu("Options", options_menu_items, sizeof(options_menu_items)/sizeof(options_menu_items[0]));
+			menu_selection = do_menu("Options", options_menu_items, 0, sizeof(options_menu_items)/sizeof(options_menu_items[0]));
 			if(menu_selection == 3){
 				break;
 			}
@@ -856,14 +867,14 @@ void _main(){
 			SetIntVec(AUTO_INT_5, time_update);
 		}
 		if(animating && animation_y == animation_end_y){
-			animating = 0;
 			place_piece(&global_board, animation_col, current_turn);
 			current_turn = !current_turn;
 			stop_engine = 0;
-			update_scr = 1;
+			render_screen();
 			if(get_player(current_turn) == COMPUTER){
 				computer_timer = global_game_settings.computer_wait*20;
 			}
+			animating = 0;
 		}
 		win_color = get_win(&global_board);
 		if(win_color != -1){

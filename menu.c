@@ -51,10 +51,10 @@ void render_menu(char *title, char **items, unsigned int num_items){
         }
 }
 
-int do_menu(char *title, char **items, unsigned int num_items){
+int do_menu(char *title, char **items, unsigned int default_selection, unsigned int num_items){
 	unsigned int key = 0;
 
-        menu_select = 0;
+        menu_select = default_selection;
         menu_max = num_items - 1;
 
 	while(key != KEY_ENTER && key != KEY_ESC){

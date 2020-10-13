@@ -38,5 +38,6 @@ struct game_settings{
 	int show_evaluation;
 	int show_pv;
 	int computer_wait;
+	unsigned char current_turn;
 };
 #endif
